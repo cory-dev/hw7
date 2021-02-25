@@ -1,19 +1,73 @@
-window.addEventListener('DOMContentLoaded', async function(event) {
+
+//window.addEventListener('DOMContentLoaded', async function(event) {
+  firebase.auth().onAuthStateChanged(async function(user) {
+
+    if (user) {
+      
   let db = firebase.firestore()
+
+  db.collection('users').doc(user.uid).set({
+    name: user.displayName,
+    email: user.email
+  })
+
+  // console.log(`name is ${user.displayName}`)
+
   let apiKey = '3a897755f1e040eb6b9883e118692d50'
   let response = await fetch(`https://api.themoviedb.org/3/movie/now_playing?api_key=${apiKey}&language=en-US`)
   let json = await response.json()
   let movies = json.results
-  console.log(movies)
+  // console.log(movies)
   
+
+  //  show only my watched movies
+let querySnapshot = await db.collection('watched').where('userId', '==', user.uid).get()
+console.log(`Number of watched movies in collection: ${querySnapshot.size}`)
+
+console.log(querySnapshot.size)
+
+console.log(querySnapshot.docs)
+
+let pre = querySnapshot.docs
+let movieArray = []
+
+for (let j=0; j<querySnapshot.size; j++) {
+  let preId = pre[j].id
+  // console.log(preId)
+  movieArray.push(preId)
+}
+
+console.log(movieArray)
+
+console.log(movieArray.includes("604822"))
+
+console.log(movieArray.includes(604822))
+
+let opaqueArray = []
   for (let i=0; i<movies.length; i++) {
     let movie = movies[i]
-    let docRef = await db.collection('watched').doc(`${movie.id}`).get()
-    let watchedMovie = docRef.data()
     let opacityClass = ''
-    if (watchedMovie) {
+    //console.log('"' + movie.id + '"')
+    let movieString = '"' + movie.id + '"'
+    if (movieArray.includes(movies[i].id)) {
+      console.log(`${movie.id} should be opaque`)
+      opaqueArray.push(movie.id)
       opacityClass = 'opacity-20'
+    } else {
+      //console.log(`${movie.id} is not in ${movieArray}`)
     }
+    // let docRef = await db.collection('watched').where('userId', '==', user.uid)
+    //                                           //.doc(`${movie.id}`)
+    //                                           .get()
+    // let watchedMovie = docRef.docs
+    // for (let i=0; i<watchedMovie.length; i++) {
+    //   let watchedMovieId = watchedMovie[i].id
+    //   let watchedMoviez = watchedMovie[i].data()
+    //   // console.log(watchedMovieId)
+    //   //console.log(watchedMoviez)
+    // }
+    
+    //console.log(opaqueArray)  
 
     document.querySelector('.movies').insertAdjacentHTML('beforeend', `
       <div class="w-1/5 p-4 movie-${movie.id} ${opacityClass}">
@@ -26,10 +80,50 @@ window.addEventListener('DOMContentLoaded', async function(event) {
       event.preventDefault()
       let movieElement = document.querySelector(`.movie-${movie.id}`)
       movieElement.classList.add('opacity-20')
-      await db.collection('watched').doc(`${movie.id}`).set({})
+      await db.collection('watched').doc(`${movie.id}`).set({
+        userId: user.uid,
+        movieId: movie.id
+      })
     }) 
   }
+
+  //console.log(movieArray)
+
+for (k=0; k<movieArray.length; k++) {
+  console.log(movieArray[k])
+  document.querySelector(`.movie-${movieArray[k]}`).innerHTML = `
+  <div class="w-1/5 p-4 movie-${movieArray[k]} opacity-20">
+    <img src="https://image.tmdb.org/t/p/w500$" class="w-full">
+    <a href="#" class="watched-button block text-center text-white bg-green-500 mt-4 px-4 py-2 rounded">I've watched this!</a>
+  </div>
+`
+}
+
+  document.querySelector('.sign-in-or-sign-out').innerHTML = `
+  <button class="text-pink-500 underline sign-out">Sign Out</button>
+  <h1>Helloooooooo ${user.displayName}</h1>
+`
+
+document.querySelector('.sign-out').addEventListener('click', function(event) {
+  console.log('sign out clicked')
+  firebase.auth().signOut()
+  document.location.href = 'movies.html'
 })
+  } else {
+    let ui = new firebaseui.auth.AuthUI(firebase.auth())
+
+    let authUIConfig = {
+      signInOptions: [
+        firebase.auth.EmailAuthProvider.PROVIDER_ID
+      ],
+      signInSuccessUrl: 'movies.html'
+    }
+
+    ui.start('.sign-in-or-sign-out', authUIConfig)
+      }
+
+  })
+//})
 
 // Goal:   Refactor the movies application from last week, so that it supports
 //         user login and each user can have their own watchlist.
